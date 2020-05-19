@@ -1,17 +1,22 @@
 package org.mlarocca.graph;
 
+import org.json.simple.JSONObject;
+
+import java.io.IOException;
+import java.io.StringWriter;
 import java.util.*;
 
-class ConcurrentVertex<T> implements VertexInternal<T> {
+class ThreadsafeVertex<T> implements VertexInternal<T> {
     private T label;
     private double weight;
-    private Map<T, ConcurrentEdge<T>> adj;
+    private Map<T, ThreadsafeEdge<T>> adj;
 
-    public ConcurrentVertex(T label) throws IllegalArgumentException {
-        this(label, 0);
+    // Weight should default to 1
+    public ThreadsafeVertex(T label) throws IllegalArgumentException {
+        this(label, 1.0);
     }
 
-    public ConcurrentVertex(T label, double weight) throws IllegalArgumentException {
+    public ThreadsafeVertex(T label, double weight) throws IllegalArgumentException {
         if (label == null) {
             throw new IllegalArgumentException("Label can't be null");
         }
@@ -36,6 +41,25 @@ class ConcurrentVertex<T> implements VertexInternal<T> {
     }
 
     @Override
+    public JSONObject toJsonObject() {
+        JSONObject vertex = new JSONObject();
+        vertex.put("label", this.getLabel());
+        vertex.put("weight", this.getWeight());
+
+        return vertex;
+    }
+
+    @Override
+    public String toJson() throws IOException {
+        JSONObject vertex = this.toJsonObject();
+
+        StringWriter stringWriter = new StringWriter();
+        vertex.writeJSONString(stringWriter);
+
+        return stringWriter.toString();
+    }
+
+    @Override
     public synchronized Collection<Edge<T>> getOutEdges() {
         return new HashSet<>(adj.values());
     }
@@ -46,18 +70,18 @@ class ConcurrentVertex<T> implements VertexInternal<T> {
             throw new IllegalArgumentException("null destination label");
         }
 
-        return addEdge(new ConcurrentEdge<T>(label, destination, weight));
+        return addEdge(new ThreadsafeEdge<T>(label, destination, weight));
     }
 
     @Override
     public synchronized boolean addEdge(Edge<T> edge) throws IllegalArgumentException{
         if (edge == null) {
             throw new IllegalArgumentException("null destination label");
-        } else if (!(edge instanceof ConcurrentEdge)) {
+        } else if (!(edge instanceof ThreadsafeEdge)) {
             throw new IllegalArgumentException("Wrong type for argument Edge: expected ConcurrentEdge");
         }
 
-        Edge<T> oldEdge = adj.put(edge.getDestination(), (ConcurrentEdge<T>)edge);
+        Edge<T> oldEdge = adj.put(edge.getDestination(), (ThreadsafeEdge<T>)edge);
 
         if (oldEdge == null) {
             // Fresh edge
@@ -92,7 +116,7 @@ class ConcurrentVertex<T> implements VertexInternal<T> {
             return false;
         }
 
-        return this.label.equals(((ConcurrentVertex<T>)other).getLabel());
+        return this.label.equals(((ThreadsafeVertex<T>)other).getLabel());
     }
 
     @Override

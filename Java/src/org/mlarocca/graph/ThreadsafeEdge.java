@@ -1,15 +1,21 @@
 package org.mlarocca.graph;
 
-class ConcurrentEdge<T> implements Edge<T> {
+import org.json.simple.JSONObject;
+
+import java.io.IOException;
+import java.io.StringWriter;
+
+class ThreadsafeEdge<T> implements Edge<T> {
     private T source;
     private T destination;
     private double weight;
 
-    public ConcurrentEdge(T source, T destination) {
-        this(source, destination, 0);
+    // Edge's weight should default to 1
+    public ThreadsafeEdge(T source, T destination) {
+        this(source, destination, 1.0);
     }
 
-    public ConcurrentEdge(T source, T destination, double weight) {
+    public ThreadsafeEdge(T source, T destination, double weight) {
         if (source == null) {
             throw new IllegalArgumentException("source can't be null");
         }
@@ -37,6 +43,11 @@ class ConcurrentEdge<T> implements Edge<T> {
     }
 
     @Override
+    public boolean isLoop() {
+        return getSource().equals(getDestination());
+    }
+
+    @Override
     public int hashCode() {
         long hash = 17L * (source.hashCode() * 31L + destination.hashCode());
         return (int) hash % Integer.MAX_VALUE;
@@ -53,13 +64,33 @@ class ConcurrentEdge<T> implements Edge<T> {
             return false;
         }
 
-        ConcurrentEdge<T> otherEdge = (ConcurrentEdge<T>)other;
+        ThreadsafeEdge<T> otherEdge = (ThreadsafeEdge<T>)other;
         return this.source.equals(otherEdge.getSource())
                 && this.destination.equals(otherEdge.getDestination());
     }
 
     @Override
     public String toString() {
-        return String.format("Edge(%s, %s, %.3f)", source.toString(), destination.toString(), weight);
+        return String.format("Edge(%s -> %s | %.3f)", source.toString(), destination.toString(), weight);
+    }
+
+    @Override
+    public JSONObject toJsonObject() {
+        JSONObject edge = new JSONObject();
+        edge.put("source", new ThreadsafeVertex<>(this.getSource()).toJsonObject());
+        edge.put("destination", new ThreadsafeVertex<>(this.getDestination()).toJsonObject());
+        edge.put("weight", this.getWeight());
+
+        return edge;
+    }
+
+    @Override
+    public String toJson() throws IOException {
+        JSONObject edge = this.toJsonObject();
+
+        StringWriter stringWriter = new StringWriter();
+        edge.writeJSONString(stringWriter);
+
+        return stringWriter.toString();
     }
 }
